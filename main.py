@@ -6,7 +6,7 @@ from pygame.locals import KEYDOWN, K_RIGHT, K_LEFT
 import numpy as np
 from utils import group
 from snake import Snake, ConfusedSnake, NotStupidSnake
-from barriers import borders
+from barriers import borders, four_rooms, random_barriers
 
 # define some colors
 BLACK = (0, 0, 0)
@@ -38,7 +38,7 @@ pygame.display.set_caption("Snake")
 # how large is the world (in grid squares)
 grid = (100, 100)
 # barriers contains the walls of the current map
-barriers = borders(grid)
+barriers = random_barriers(grid)
 
 # pixel widths of the grid squares
 DX = int(size[0] / grid[0])
@@ -68,10 +68,10 @@ def rect(p):
 
 
 def random_free_spot():
-    free = zip(*np.where(barriers == 0))
+    no_walls = zip(*np.where(barriers == 0))
     bodies = chain(*(s.tail for s in snakes))
     heads = (s.head for s in snakes)
-    free = tuple(set(free).difference(set(chain(bodies, heads))))
+    free = tuple(set(no_walls).difference(set(chain(bodies, heads))))
     return choice(free)
 
 
@@ -82,7 +82,7 @@ def fill_borders(barrier):
 
 # this is the input given to each snake at decision time
 def generate_world(candies, snakes, barrier):
-    world = barriers.copy()
+    world = barrier.copy()
     bodies = tuple(zip(*chain(*(s.tail for s in snakes))))
     if bodies:
         world[bodies] = 2

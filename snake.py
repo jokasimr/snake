@@ -1,4 +1,5 @@
 from collections import deque
+from itertools import cycle
 import random
 import numpy
 
@@ -80,13 +81,27 @@ class ConfusedSnake(Snake):
 
 
 class NotStupidSnake(ConfusedSnake):
+    '''Still a slightly confused snake,
+    but at least it knows how to take care
+    of itself in the simplest of ways:
+    by looking in front of its face.
+
+    But it's actually slightly smarter than that.
+    Because when it turns to avoid obstacles, it alternates
+    between turning left and right and thus avoids getting
+    looped up in itself by making the same turn to many times.
+    '''
+    def __init__(self, *args, **kwargs):
+        self.turning_direction = cycle(('left', 'right'))
+        super().__init__(*args, **kwargs)
+
     def update_direction(self, grid):
         super().update_direction(grid)
-        self.recurse_save(grid, 0)
+        self.recurse_save(grid, next(self.turning_direction), 0)
 
-    def recurse_save(self, grid, depth):
+    def recurse_save(self, grid, direction, depth):
         if depth > 4 or grid[tuple(self.head+self.direction)] in (0, 4):
             pass
         else:
-            self.turn('left')
-            self.recurse_save(grid, depth+1)
+            self.turn(direction)
+            self.recurse_save(grid, direction, depth+1)
