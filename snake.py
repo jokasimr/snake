@@ -18,12 +18,12 @@ DIRECTIONS = {
         'right': (1, 0)
         }
 
-REV_DIRECTIONS = {v : k for k, v in DIRECTIONS.items()}
+REV_DIRECTIONS = {v: k for k, v in DIRECTIONS.items()}
 
 for k, v in DIRECTIONS.items():
     DIRECTIONS[k] = Pos(v)
 
-left = numpy.array([[0, -1], [1, 0]])
+right = numpy.array([[0, -1], [1, 0]])
 
 
 class Snake(object):
@@ -33,9 +33,9 @@ class Snake(object):
         self.color = color
 
         head = Pos(head)
-        self.body = deque((head - i*self.direction for i in range(length)))
+        self.body = deque((head,))
 
-        self.energy = 0
+        self.energy = length
 
     @property
     def head(self):
@@ -64,9 +64,9 @@ class Snake(object):
 
     def turn(self, left_right):
         if left_right == 'left':
-            self.direction = left.dot(self.direction.T)
+            self.direction = -right.dot(self.direction.T)
         elif left_right == 'right':
-            self.direction = -left.dot(self.direction.T)
+            self.direction = right.dot(self.direction.T)
 
 
 class ConfusedSnake(Snake):
@@ -77,3 +77,16 @@ class ConfusedSnake(Snake):
     def update_direction(self, grid):
         if random.random() < self.confusion:
             self.turn(random.choice(['left', 'right']))
+
+
+class NotStupidSnake(ConfusedSnake):
+    def update_direction(self, grid):
+        super().update_direction(grid)
+        self.recurse_save(grid, 0)
+
+    def recurse_save(self, grid, depth):
+        if depth > 4 or grid[tuple(self.head+self.direction)] in (0, 4):
+            pass
+        else:
+            self.turn('left')
+            self.recurse_save(grid, depth+1)
