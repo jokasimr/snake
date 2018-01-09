@@ -133,7 +133,8 @@ while not done:
     world = generate_world(candies, snakes, barriers)
     for s in snakes:
         s.update_direction(world.copy())
-    changes = {s: {s.step()} for s in snakes}
+    changes = {change for change in map(lambda s: s.step(), snakes)
+               if change is not None}
 
     # Let's see who died this step
     died = set()
@@ -159,12 +160,11 @@ while not done:
 
     # remove the bodies of dead snakes
     for s in died:
-        changes[s].update(s.tail)
+        changes.update(s.tail)
 
-    for change in changes.values():
-        for p in change:
-            if p:
-                screen.fill(BLACK, rect(p))
+    # repaint background where worms have moved away or died
+    for change in changes:
+        screen.fill(BLACK, rect(change))
 
     # update candy-position if it has been eaten
     for s in snakes:
