@@ -1,11 +1,11 @@
-from itertools import chain
+from itertools import chain, repeat
 from random import choice
 # from time import sleep
 import pygame
 from pygame.locals import KEYDOWN, K_RIGHT, K_LEFT
 import numpy as np
 from utils import group
-from snake import Snake, ConfusedSnake, NotStupidSnake
+from snake import Snake, ConfusedSnake, NotStupidSnake, SafeSnake, FoodSnake
 from barriers import borders, four_rooms, random_barriers
 
 # define some colors
@@ -28,7 +28,9 @@ CANDY_COLOR = RED
 CANDY_ENERGY = 10
 NUMBER_OF_CANDY = 10
 
+FPS = 30
 pygame.init()
+clock = pygame.time.Clock()
 
 # world pixel-size
 size = (600, 600)
@@ -38,13 +40,13 @@ pygame.display.set_caption("Snake")
 # how large is the world (in grid squares)
 grid = (100, 100)
 # barriers contains the walls of the current map
-barriers = random_barriers(grid)
+barriers = four_rooms(grid, door=(0.4, 0.7))
 
 # pixel widths of the grid squares
 DX = int(size[0] / grid[0])
 DY = int(size[1] / grid[1])
 
-player_controlled_snake = Snake((5, 5), direction='down', color=BLUE)
+player_controlled_snake = FoodSnake((5, 5), direction='down', color=BLUE)
 # set containing the living snakes
 snakes = {player_controlled_snake}
 # set containing the dead snakes
@@ -104,7 +106,7 @@ def random_snakes(cls):
 
 
 # add some snakes
-snake_factory = random_snakes(NotStupidSnake)
+snake_factory = random_snakes(FoodSnake)
 for _ in range(30):
     snakes.add(next(snake_factory))
 
@@ -115,7 +117,6 @@ for s in snakes:
     screen.fill(s.color, rect(s.head))
 
 done = False
-clock = pygame.time.Clock()
 
 while not done:
     # main event loop
@@ -184,6 +185,6 @@ while not done:
     pygame.display.flip()
 
     # limit frames per second
-    clock.tick(30)
+    clock.tick(FPS)
 
 pygame.quit()
