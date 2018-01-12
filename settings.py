@@ -1,0 +1,20 @@
+
+# define some colors
+BLACK = (0, 0, 0)
+WHITE = (255, 255, 255)
+GREEN = (0, 255, 0)
+RED = (255, 0, 0)
+BLUE = (0, 0, 255)
+
+# constants
+AIR = 0
+WALL = 1
+BODY = 2
+HEAD = 3
+CANDY = 4
+
+WALL_COLOR = WHITE
+CANDY_COLOR = RED
+
+CANDY_ENERGY = 10
+NUMBER_OF_CANDY = 10

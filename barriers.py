@@ -33,3 +33,16 @@ def random_barriers(grid, d=0.05):
     random = np.floor(np.random.random(grid) + d)
     random[barrier == 1] = 1
     return random
+
+
+def test_barrier(grid):
+    X, Y = grid
+    barrier = np.ones(grid)
+    barrier[10, 10:90] = 0
+    barrier[5:90, 30] = 0
+    barrier[70, 10:90] = 0
+    barrier[50, 10:90] = 0
+    barrier[70, 21] = 4
+    barrier[5:90, 70] = 0
+    barrier[5:90, 50] = 0
+    return barrier

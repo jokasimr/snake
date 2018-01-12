@@ -2,15 +2,13 @@ from collections import deque
 from itertools import cycle
 from random import random, choice
 import numpy as np
+import scipy.ndimage as scn
+import settings as S
+from search import search_candy, secure_path, neighboors
+from time import sleep
 
-BLACK = (0, 0, 0)
-WHITE = (255, 255, 255)
-GREEN = (0, 255, 0)
-RED = (255, 0, 0)
 
 Pos = np.array
-
-LEFTRIGHT = deque(['up', 'right', 'down', 'left'])
 
 DIRECTIONS = {
         'up': (0, -1),
@@ -18,8 +16,6 @@ DIRECTIONS = {
         'left': (-1, 0),
         'right': (1, 0)
         }
-
-REV_DIRECTIONS = {v: k for k, v in DIRECTIONS.items()}
 
 for k, v in DIRECTIONS.items():
     DIRECTIONS[k] = Pos(v)
@@ -29,7 +25,7 @@ right = np.array([[0, -1], [1, 0]])
 
 class Snake(object):
 
-    def __init__(self, head, direction='up', length=5, color=RED):
+    def __init__(self, head, direction='up', length=5, color=S.RED):
         self.direction = DIRECTIONS[direction]
         self.color = color
 
@@ -101,7 +97,7 @@ class SafeSnake(Snake):
         self.recurse_save(grid, self.next_turn, 0)
 
     def recurse_save(self, grid, direction, depth):
-        if depth > 3 or grid[tuple(self.head+self.direction)] in (0, 4):
+        if depth > 3 or grid[tuple(self.head+self.direction)] in (S.AIR, S.CANDY):
             if depth == 1:
                 self.last_turn, self.next_turn = self.next_turn, self.last_turn
         else:
@@ -121,7 +117,7 @@ class FoodSnake(SafeSnake):
 
     def update_direction(self, grid):
         # Step 1: Find the candies
-        candies = np.vstack(np.where(grid == 4)).T
+        candies = np.vstack(np.where(grid == S.CANDY)).T
         if candies.size > 0:
             # Step 2: Calculate distances between candies and me
             distances = self.distance(candies-self.head)
@@ -142,3 +138,103 @@ class FoodSnake(SafeSnake):
                     break
                 self.turn(self.next_turn)
         super().update_direction(grid)
+
+
+class SecureSnake(Snake):
+    def turn_to_fit(self, path, grid):
+        pick = Pos(choice(path))
+        self.direction = pick-self.head
+        assert tuple(self.head + self.direction) in path
+
+    def update_direction(self, grid):
+        depth_lim = 25
+        path = tuple(secure_path(self.head, grid, 0, depth_lim, set()))
+        c = 0
+        while len(path) == 0 and depth_lim-c > 0:
+            c += 1
+            path = tuple(secure_path(self.head, grid, 0, depth_lim-c, set()))
+        if path:
+            if not tuple(self.head + self.direction) in path:
+                self.turn_to_fit(path, grid)
+        super().update_direction(grid)
+
+
+class SuperSnake(SecureSnake):
+    def distance(self, dx):
+        return np.abs(dx).sum(axis=1)
+
+    def update_direction(self, grid):
+        road = search_candy(tuple(self.head), grid)
+        if road:
+            next(road)
+            next_step = next(road)
+            self.direction = Pos(next_step)-self.head
+        super().update_direction(grid)
+
+
+class MySnake(ConfusedSnake):
+    def __init__(self, *args, confusion=0.1, **kwargs):
+        super().__init__(*args, confusion=0.1, **kwargs)
+        self.rand = random
+    
+    def set_direction(self,direction):
+        self.direction = DIRECTIONS[direction]
+
+    def find_candy(self,grid):
+        loc = np.vstack(np.where(grid == 4)).T
+        if len(loc) != 0:
+            dist = np.sum((loc-self.head)**2, axis=1) 
+            ind = np.argmin(dist)
+            return loc[ind]
+        else:
+            return self.head+self.direction
+        
+    def update_direction(self,grid):
+        candy = self.find_candy(grid)
+        old_dir = self.direction
+        
+        
+        
+        if self.head[0] == candy[0]:
+            if self.head[1] > candy[1]:
+                self.set_direction('up')   
+            else:
+                self.set_direction('down')
+        elif self.head[0] > candy[0]:
+            self.set_direction('left')
+        else:
+            self.set_direction('right')
+        
+            
+        grid_copy = np.sign(grid.copy())
+        labeled_array, num_features = scn.label(grid_copy-1)
+        
+            
+        if np.linalg.norm(old_dir - self.direction) < 0.02  and grid[tuple(self.head+self.direction)] == 2:
+          
+           #Get left label
+           self.turn('left')
+           left_label = labeled_array[tuple(self.head+self.direction)]
+           self.turn('right')
+           
+           #Get Right label
+           self.turn('right')
+           right_label = labeled_array[tuple(self.head+self.direction)]
+           self.turn('left')
+           
+           size_left = np.count_nonzero(labeled_array == left_label)
+           size_right = np.count_nonzero(labeled_array == right_label)
+           
+           
+         
+           if size_left > size_right:
+               self.turn('left')
+           #    print('turn left')
+           else:
+               self.turn('right')
+           #    print('turn right')
+           
+        
+        for i in range(3):
+            if grid[tuple(self.head+self.direction)] != 0 and grid[tuple(self.head+self.direction)] != 4:
+                self.turn('left')

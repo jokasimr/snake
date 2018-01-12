@@ -5,48 +5,33 @@ import pygame
 from pygame.locals import KEYDOWN, K_RIGHT, K_LEFT
 import numpy as np
 from utils import group
-from snake import Snake, ConfusedSnake, NotStupidSnake, SafeSnake, FoodSnake
-from barriers import borders, four_rooms, random_barriers
+from snake import Snake, ConfusedSnake, NotStupidSnake, SafeSnake, FoodSnake, SuperSnake, SecureSnake, MySnake
+from barriers import borders, four_rooms, random_barriers, test_barrier
+import settings as S
 
-# define some colors
-BLACK = (0, 0, 0)
-WHITE = (255, 255, 255)
-GREEN = (0, 255, 0)
-RED = (255, 0, 0)
-BLUE = (0, 0, 255)
-
-# constants
-AIR = 0
-WALL = 1
-BODY = 2
-HEAD = 3
-CANY = 4
-
-WALL_COLOR = WHITE
-CANDY_COLOR = RED
-
-CANDY_ENERGY = 10
-NUMBER_OF_CANDY = 10
+# # # # # SIMPLE GAME SETUP # # # # # # # # # # # # # #
 
 FPS = 30
-pygame.init()
-clock = pygame.time.Clock()
-
 # world pixel-size
 size = (600, 600)
-screen = pygame.display.set_mode(size)
-pygame.display.set_caption("Snake")
-
 # how large is the world (in grid squares)
 grid = (100, 100)
 # barriers contains the walls of the current map
-barriers = four_rooms(grid, door=(0.4, 0.7))
+barriers = four_rooms(grid, door=(0.6, 0.8))
+# Player snake setup
+player_controlled_snake = SuperSnake((10, 10), direction='down', color=S.BLUE)
+
+##################################################
 
 # pixel widths of the grid squares
 DX = int(size[0] / grid[0])
 DY = int(size[1] / grid[1])
 
-player_controlled_snake = FoodSnake((5, 5), direction='down', color=BLUE)
+pygame.init()
+clock = pygame.time.Clock()
+screen = pygame.display.set_mode(size)
+pygame.display.set_caption("Snake")
+
 # set containing the living snakes
 snakes = {player_controlled_snake}
 # set containing the dead snakes
@@ -79,7 +64,7 @@ def random_free_spot():
 
 def fill_borders(barrier):
     for p in zip(*np.where(barrier == 1)):
-        screen.fill(WALL_COLOR, rect(p))
+        screen.fill(S.WALL_COLOR, rect(p))
 
 
 # this is the input given to each snake at decision time
@@ -87,12 +72,12 @@ def generate_world(candies, snakes, barrier):
     world = barrier.copy()
     bodies = tuple(zip(*chain(*(s.tail for s in snakes))))
     if bodies:
-        world[bodies] = 2
+        world[bodies] = S.BODY
     heads = tuple(zip(*(s.head for s in snakes)))
     if heads:
-        world[heads] = 3
+        world[heads] = S.HEAD
     for c in candies:
-        world[c] = 4
+        world[c] = S.CANDY
     return world
 
 
@@ -101,15 +86,16 @@ def random_snakes(cls):
     while True:
         pos = random_free_spot()
         direction = choice(('left', 'right', 'up', 'down'))
-        snake = cls(pos, direction=direction, color=WHITE)
+        snake = cls(pos, direction=direction, color=S.WHITE)
         yield snake
 
 
 # add some snakes
 snake_factory = random_snakes(FoodSnake)
-for _ in range(30):
+for _ in range(0):
     snakes.add(next(snake_factory))
 
+snakes.add(MySnake((10, 90), color=S.RED))
 
 # fill borders and place snakes on the screen
 fill_borders(barriers)
@@ -152,7 +138,7 @@ while not done:
     for s in snakes:
         if s in died:
             continue
-        if barriers[s.head] == WALL or s.head in bodies:
+        if barriers[s.head] == S.WALL or s.head in bodies:
             died.add(s)
             print(s)
 
@@ -165,18 +151,18 @@ while not done:
 
     # repaint background where worms have moved away or died
     for change in changes:
-        screen.fill(BLACK, rect(change))
+        screen.fill(S.BLACK, rect(change))
 
     # update candy-position if it has been eaten
     for s in snakes:
         if s.head in candies:
-            s.eat(CANDY_ENERGY)
+            s.eat(S.CANDY_ENERGY)
             candies.remove(s.head)
 
-    if len(candies) < NUMBER_OF_CANDY:
+    if len(candies) < S.NUMBER_OF_CANDY:
         candy = random_free_spot()
         candies.add(candy)
-        screen.fill(CANDY_COLOR, rect(candy))
+        screen.fill(S.CANDY_COLOR, rect(candy))
 
     # move the heads of living snakes
     for s in snakes:
