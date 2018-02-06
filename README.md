@@ -1,8 +1,6 @@
 # snake
 Tiny PyGame-based Snake.
 
-It has some different kinds of bots that play the game.
-
 
 ## Run
 
