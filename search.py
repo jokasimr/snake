@@ -19,6 +19,9 @@ def neighboors(point, grid):
 
 
 class Point(object):
+    '''A position on a grid, it's part of a chain - a road.
+    It has neighboors, four of them at most, but it might have fewer
+    if it's in a corner.'''
     def __init__(self, point, road, grid):
         self.head = point
         self.road = chain(road, (point,))
@@ -29,9 +32,11 @@ class Point(object):
         for neighboor in self.neighboors:
             yield Point(neighboor, self.road, self.grid)
 
+    '''Neccesary for putting the Points in a Set'''
     def __hash__(self):
         return hash(self.head)
 
+    '''Neccesary for putting the Points in a Set'''
     def __eq__(self, o):
         return self.head == o.head
 
@@ -40,6 +45,15 @@ class Point(object):
 
 
 def search_candy(start, grid):
+    '''Searches the grid in all directions,
+    stopping when a candy is found.
+    1. Find the neighbors of the starting-point
+    2. Those are now our frontiers
+    3a. Do any of them contain candy? If so, return the path to it!
+    3b. Find all of the unvisited neighboors of the frontier points.
+    4. Go to 2.
+    Returns
+        The path (a sequence of positions) to the first candy found.'''
     start = Point(start, [], grid)
     visited = {start}
     children = set()
@@ -57,6 +71,8 @@ def search_candy(start, grid):
 
 
 def secure_path(start, grid, depth, depth_lim, visited={}):
+    '''Recursively checks if there is any chance of survival
+    in the next $depth steps if the snake goes to the $start position.'''
     if depth == 0:
         safe_routes = []
     if depth > depth_lim:

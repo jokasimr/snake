@@ -1,106 +1,125 @@
-from itertools import chain, repeat
+from itertools import chain
 from random import choice
 # from time import sleep
 import pygame
 from pygame.locals import KEYDOWN, K_RIGHT, K_LEFT
 import numpy as np
 from utils import group
-from snake import Snake, ConfusedSnake, NotStupidSnake, SafeSnake, FoodSnake, SuperSnake, SecureSnake, MySnake
+from snake import Snake, ConfusedSnake, NotStupidSnake, SafeSnake, \
+        FoodSnake, SuperSnake, SecureSnake
 from barriers import borders, four_rooms, random_barriers, test_barrier
-import settings as S
+import settings
 
-# # # # # SIMPLE GAME SETUP # # # # # # # # # # # # # #
-
+# # # # #  GAME SETUP # # # # # # # # # # # # # #
 FPS = 30
-# world pixel-size
+# screen pixel-size
 size = (600, 600)
-# how large is the world (in grid squares)
+# world size in grid squares
 grid = (100, 100)
 # barriers contains the walls of the current map
 barriers = four_rooms(grid, door=(0.6, 0.8))
 # Player snake setup
-player_controlled_snake = SuperSnake((10, 10), direction='down', color=S.BLUE)
-
+player_controlled_snake = SuperSnake((10, 10), direction='down',
+                                     color=settings.BLUE)
 ##################################################
 
 # pixel widths of the grid squares
-DX = int(size[0] / grid[0])
-DY = int(size[1] / grid[1])
+DX = size[0] // grid[0]
+DY = size[1] // grid[1]
 
 pygame.init()
 clock = pygame.time.Clock()
 screen = pygame.display.set_mode(size)
 pygame.display.set_caption("Snake")
 
-# set containing the living snakes
+# Set containing the living snakes
 snakes = {player_controlled_snake}
-# set containing the dead snakes
+# Set containing the dead snakes
 dead = set()
-# set containing candy
+# Set containing candy
 candies = set()
 
 
 def pos(p):
-    '''
-    Takes: The game gridpoint
-    Returns: The screen gridpoint
-    '''
+    '''Args
+        p: A game gridpoint.
+    Returns
+        The screen gridpoint.'''
     x, y = p
     return (x*DX, y*DY)
 
 
 def rect(p):
-    '''Returns a pygame Rect of the gridsquare at (x,y)'''
+    '''Args
+        p: A game gridpoint.
+    Returns
+        A pygame Rect, the grid-square starting at p.'''
     return pygame.Rect(pos(p), (DX, DY))
 
 
+def where(grid, value):
+    '''Returns all positions on the grid where it has the value.
+    Args
+        grid: 2d numpy-array containing values.
+        value: what to search for on the grid.
+    Returns
+        An iterable over the positions.
+    '''
+    return zip(*np.where(grid == value))
+
+
 def random_free_spot():
-    no_walls = zip(*np.where(barriers == 0))
-    bodies = chain(*(s.tail for s in snakes))
-    heads = (s.head for s in snakes)
-    free = tuple(set(no_walls).difference(set(chain(bodies, heads))))
-    return choice(free)
+    '''Returns a random non-occupied positions on the grid.'''
+    no_walls = set(where(barriers, settings.AIR))
+    heads = (snake.head for snake in snakes)
+    bodies = chain(*(snake.tail for snake in snakes))
+    free_positions = no_walls - set(chain(bodies, heads))
+    return choice(tuple(free_positions))
 
 
-def fill_borders(barrier):
-    for p in zip(*np.where(barrier == 1)):
-        screen.fill(S.WALL_COLOR, rect(p))
-
-
-# this is the input given to each snake at decision time
 def generate_world(candies, snakes, barrier):
+    '''Creates a snapshot of the world, where all barriers, snakes and candies
+    can be located. This is given to the snakes as input to let them make
+    informed decisions about where to move.
+
+    Returns
+        2d numpy array that represents the content at every grid-square.
+    '''
     world = barrier.copy()
     bodies = tuple(zip(*chain(*(s.tail for s in snakes))))
     if bodies:
-        world[bodies] = S.BODY
+        world[bodies] = settings.BODY
     heads = tuple(zip(*(s.head for s in snakes)))
     if heads:
-        world[heads] = S.HEAD
+        world[heads] = settings.HEAD
     for c in candies:
-        world[c] = S.CANDY
+        world[c] = settings.CANDY
     return world
 
 
-# making a random snake factory
-def random_snakes(cls):
-    while True:
+def fill_barriers(barrier):
+    ''' Fill the grid with color'''
+    for p in where(barriers, settings.WALL):
+        screen.fill(settings.WALL_COLOR, rect(p))
+
+
+def random_snakes(cls, n):
+    '''Utility function to create some random snakes of a specific class.'''
+    for _ in range(5):
         pos = random_free_spot()
         direction = choice(('left', 'right', 'up', 'down'))
-        snake = cls(pos, direction=direction, color=S.WHITE)
+        snake = cls(pos, direction=direction, color=settings.WHITE)
         yield snake
 
 
 # add some snakes
-snake_factory = random_snakes(FoodSnake)
-for _ in range(0):
-    snakes.add(next(snake_factory))
-
-snakes.add(MySnake((10, 90), color=S.RED))
+snake_factory = random_snakes(FoodSnake, 5)
+snakes.update(tuple(snake_factory))
 
 # fill borders and place snakes on the screen
-fill_borders(barriers)
-for s in snakes:
-    screen.fill(s.color, rect(s.head))
+fill_barriers(barriers)
+for snake in snakes:
+    screen.fill(snake.color, rect(snake.head))
 
 done = False
 
@@ -126,47 +145,53 @@ while not done:
     # Let's see who died this step
     died = set()
 
-    # head on head collisions
-    heads = group(snakes, lambda s: s.head)
-    for k, v in heads.items():
-        if len(v) > 1:
-            print(*v)
-            died.update(v)
+    '''Check head on head collisions
+        1. Group snakes by head-position
+        2. Remove any snakes belonging to a group with more than one member'''
+    position_grouping = group(snakes, lambda snake: snake.head)
+    for snakes_at_position in position_grouping.values():
+        if len(snakes_at_position) > 1:
+            print(*snakes_at_position)
+            died.update(snakes_at_position)
 
-    # other collisions
-    bodies = set(chain(*(s.tail for s in snakes)))
-    for s in snakes:
-        if s in died:
+    '''Check other collisions
+        1. Either you're already dead - then continue
+        2. or you've collided with a wall or another snake - then you're dead
+        3. or you live!'''
+    bodies = set(chain(*(snake.tail for snake in snakes)))
+    for snake in snakes:
+        if snake in died:
             continue
-        if barriers[s.head] == S.WALL or s.head in bodies:
-            died.add(s)
+        if barriers[snake.head] == settings.WALL or snake.head in bodies:
+            died.add(snake)
             print(s)
 
     snakes.difference_update(died)
     dead.update(died)
 
-    # remove the bodies of dead snakes
-    for s in died:
-        changes.update(s.tail)
+    # Remove the bodies of dead snakes.
+    # Only the tails needs to be removed - the heads haven't been painted yet.
+    for snake in died:
+        changes.update(snake.tail)
 
-    # repaint background where worms have moved away or died
+    # Repaint background where worms have moved away or died.
     for change in changes:
-        screen.fill(S.BLACK, rect(change))
+        screen.fill(settings.BLACK, rect(change))
 
-    # update candy-position if it has been eaten
-    for s in snakes:
-        if s.head in candies:
-            s.eat(S.CANDY_ENERGY)
-            candies.remove(s.head)
+    # Feed snakes and update candies if any have been eaten.
+    for snake in snakes:
+        if snake.head in candies:
+            snake.eat(settings.CANDY_ENERGY)
+            candies.remove(snake.head)
 
-    if len(candies) < S.NUMBER_OF_CANDY:
+    if len(candies) < settings.NUMBER_OF_CANDY:
         candy = random_free_spot()
         candies.add(candy)
-        screen.fill(S.CANDY_COLOR, rect(candy))
+        screen.fill(settings.CANDY_COLOR, rect(candy))
 
     # move the heads of living snakes
-    for s in snakes:
-        screen.fill(s.color, rect(s.head))
+    for snake in snakes:
+        screen.fill(snake.color, rect(snake.head))
 
     pygame.display.flip()
 
